@@ -1,0 +1,2 @@
+00-damage
+01-whole
