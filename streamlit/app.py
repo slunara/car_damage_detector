@@ -94,7 +94,7 @@ if 'image' in locals():
     # Display results
     st.subheader("🔍 Prediction:")
     
-    if damage_probability > 0.5:
+    if damage_probability < 0.5:
         st.error(f"🚨 **Car is damaged!** (Confidence: {damage_probability:.2%})")
     else:
         st.success(f"✅ **Car is not damaged.** (Confidence: {1 - damage_probability:.2%})")
