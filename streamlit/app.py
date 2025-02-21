@@ -24,47 +24,63 @@ height, width = input_shape[1], input_shape[2]
 
 # Function to preprocess image
 def preprocess_image(image):
-    # Convert PIL image to numpy array
-    image = np.array(image)
+    try:
+        # Convert PIL image to NumPy array
+        image = np.array(image, dtype=np.uint8)
 
-    # Convert to RGB if needed
-    if image.shape[-1] == 4:  # Handle RGBA images
-        image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
-    elif len(image.shape) == 2:  # Grayscale to RGB
-        image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+        # Ensure it's in RGB format
+        if len(image.shape) == 2:  # If grayscale, convert to RGB
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+        elif image.shape[-1] == 4:  # If RGBA, convert to RGB
+            image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
 
-    # Resize to model input size
-    image = cv2.resize(image, (width, height))
+        # Ensure the image is a valid NumPy array
+        if not isinstance(image, np.ndarray):
+            raise ValueError("Error: Image is not a valid NumPy array.")
 
-    # Normalize if model expects float32
-    if input_dtype == np.float32:
-        image = image.astype(np.float32) / 255.0
+        # Resize image to match model input size
+        image = cv2.resize(image, (width, height), interpolation=cv2.INTER_AREA)
 
-    # Expand dimensions to match (1, height, width, 3)
-    image = np.expand_dims(image, axis=0)
+        # Normalize if the model expects float32
+        if input_dtype == np.float32:
+            image = image.astype(np.float32) / 255.0
 
-    return image
+        # Expand dimensions to match (1, height, width, 3)
+        image = np.expand_dims(image, axis=0)
+
+        return image
+
+    except Exception as e:
+        st.error(f"⚠️ Image preprocessing failed: {e}")
+        return None
+
 
 # Function to make a prediction
 def predict_damage(image):
-    # Get input tensor index
-    input_tensor_index = input_details[0]['index']
-    interpreter.set_tensor(input_tensor_index, image)
+    try:
+        # Get input tensor index
+        input_tensor_index = input_details[0]['index']
+        interpreter.set_tensor(input_tensor_index, image)
 
-    # Run inference
-    interpreter.invoke()
+        # Run inference
+        interpreter.invoke()
 
-    # Get output tensor index
-    output_tensor_index = output_details[0]['index']
-    prediction = interpreter.get_tensor(output_tensor_index)
+        # Get output tensor index
+        output_tensor_index = output_details[0]['index']
+        prediction = interpreter.get_tensor(output_tensor_index)
 
-    # Debugging: Show raw model output
-    st.write("🔍 **Raw Model Output:**", prediction)
+        # Debugging: Show raw model output
+        st.write("🔍 **Raw Model Output:**", prediction)
 
-    # Extract probability correctly
-    damage_probability = prediction.item()  # Ensure correct value extraction
+        # Extract probability correctly
+        damage_probability = float(prediction.item())  # Ensure correct value extraction
 
-    return damage_probability
+        return damage_probability
+
+    except Exception as e:
+        st.error(f"⚠️ Prediction failed: {e}")
+        return None
+
 
 # Streamlit UI
 st.title("🚗 Car Damage Detector")
@@ -72,29 +88,41 @@ st.title("🚗 Car Damage Detector")
 # Option to upload or take a picture
 option = st.radio("Choose an option:", ["Upload Image", "Take a Photo"])
 
+image = None  # Initialize image variable
+
 if option == "Upload Image":
     uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
-    if uploaded_file:
-        image = Image.open(uploaded_file)
-elif option == "Take a Photo":
-    image = st.camera_input("Take a photo")
-    if image:
-        image = Image.open(image)
+    if uploaded_file is not None:
+        try:
+            image = Image.open(uploaded_file)
+        except Exception as e:
+            st.error(f"Error loading uploaded image: {e}")
 
-# If image exists, process and predict
-if 'image' in locals():
-    st.image(image, caption="Uploaded Image", use_column_width=True)
+elif option == "Take a Photo":
+    captured_image = st.camera_input("Take a photo")
+    if captured_image is not None:
+        try:
+            image = Image.open(captured_image)
+        except Exception as e:
+            st.error(f"Error capturing image: {e}")
+
+# Ensure an image was uploaded or captured before proceeding
+if image is not None:
+    st.image(image, caption="📷 Uploaded Image", use_container_width=True)
 
     # Preprocess image
     processed_img = preprocess_image(image)
 
-    # Predict
-    damage_probability = predict_damage(processed_img)
+    if processed_img is not None:
+        # Predict
+        damage_probability = predict_damage(processed_img)
 
-    # Display results
-    st.subheader("🔍 Prediction:")
-    
-    if damage_probability < 0.5:
-        st.error(f"🚨 **Car is damaged!** (Confidence: {damage_probability:.2%})")
-    else:
-        st.success(f"✅ **Car is not damaged.** (Confidence: {1 - damage_probability:.2%})")
+        # Display results
+        if damage_probability is not None:
+            st.subheader("🔍 Prediction:")
+            if damage_probability < 0.5:
+                st.error(f"🚨 **Car is damaged!** (Confidence: {damage_probability:.2%})")
+            else:
+                st.success(f"✅ **Car is not damaged.** (Confidence: {1 - damage_probability:.2%})")
+else:
+    st.warning("⚠️ Please upload or take a picture before proceeding.")
