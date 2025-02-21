@@ -1,94 +1,86 @@
 import streamlit as st
 import numpy as np
 import tensorflow.lite as tflite
-import tensorflow as tf
 import cv2
 from PIL import Image
-from tensorflow.keras.applications import EfficientNetB0
-from tensorflow.keras.applications.efficientnet import preprocess_input, decode_predictions
-from tensorflow.keras.preprocessing import image
 
-# Load the TFLite damage detection model
+# Load the TFLite model
 @st.cache_resource  # Cache the interpreter for efficiency
-def load_damage_model():
+def load_model():
     interpreter = tflite.Interpreter(model_path="model.tflite")
     interpreter.allocate_tensors()
     return interpreter
 
-damage_interpreter = load_damage_model()
+interpreter = load_model()
 
-# Load EfficientNetB0 for car verification (pretrained on ImageNet)
-@st.cache_resource
-def load_car_model():
-    return EfficientNetB0(weights="imagenet")
-
-car_model = load_car_model()
-
-# Get input details for damage model preprocessing
-input_details = damage_interpreter.get_input_details()
-output_details = damage_interpreter.get_output_details()
+# Get input details for preprocessing
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
 
 # Extract input shape & dtype
 input_shape = input_details[0]['shape']  # (1, height, width, 3)
 input_dtype = input_details[0]['dtype']
 height, width = input_shape[1], input_shape[2]
 
-# Function to check if the image contains a car
-def is_car_image(image):
-    img = image.resize((224, 224))  # Resize for EfficientNetB0
-    img_array = image.img_to_array(img)
-    img_array = np.expand_dims(img_array, axis=0)
-    img_array = preprocess_input(img_array)  # Normalize
-
-    # Predict class
-    preds = car_model.predict(img_array)
-    decoded_preds = decode_predictions(preds, top=3)[0]  # Get top 3 predictions
-
-    # Debugging: Display top predictions
-    st.write("🔍 *Car Model Predictions:*", [(label, f"{prob*100:.2f}%") for (_, label, prob) in decoded_preds])
-
-    # Check if any of the top predictions indicate a car
-    car_labels = ["sports_car", "SUV", "convertible", "jeep", "pickup", "limousine", "cab", "car_wheel"]
-    return any(label in car_labels for _, label, _ in decoded_preds)
-
-# Function to preprocess image for damage detection
+# Function to preprocess image
 def preprocess_image(image):
-    image = np.array(image)
+    try:
+        # Convert PIL image to NumPy array
+        image = np.array(image, dtype=np.uint8)
 
-    # Convert to RGB if needed
-    if image.shape[-1] == 4:  # Handle RGBA images
-        image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
-    elif len(image.shape) == 2:  # Grayscale to RGB
-        image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+        # Ensure it's in RGB format
+        if len(image.shape) == 2:  # If grayscale, convert to RGB
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+        elif image.shape[-1] == 4:  # If RGBA, convert to RGB
+            image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
 
-    # Resize to model input size
-    image = cv2.resize(image, (width, height))
+        # Ensure the image is a valid NumPy array
+        if not isinstance(image, np.ndarray):
+            raise ValueError("Error: Image is not a valid NumPy array.")
 
-    # Normalize if model expects float32
-    if input_dtype == np.float32:
-        image = image.astype(np.float32) / 255.0
+        # Resize image to match model input size
+        image = cv2.resize(image, (width, height), interpolation=cv2.INTER_AREA)
 
-    # Expand dimensions to match (1, height, width, 3)
-    image = np.expand_dims(image, axis=0)
+        # Normalize if the model expects float32
+        if input_dtype == np.float32:
+            image = image.astype(np.float32) / 255.0
 
-    return image
+        # Expand dimensions to match (1, height, width, 3)
+        image = np.expand_dims(image, axis=0)
 
-# Function to make a prediction for damage detection
+        return image
+
+    except Exception as e:
+        st.error(f"⚠️ Image preprocessing failed: {e}")
+        return None
+
+
+# Function to make a prediction
 def predict_damage(image):
-    input_tensor_index = input_details[0]['index']
-    damage_interpreter.set_tensor(input_tensor_index, image)
+    try:
+        # Get input tensor index
+        input_tensor_index = input_details[0]['index']
+        interpreter.set_tensor(input_tensor_index, image)
 
-    # Run inference
-    damage_interpreter.invoke()
+        # Run inference
+        interpreter.invoke()
 
-    # Get output tensor index
-    output_tensor_index = output_details[0]['index']
-    prediction = damage_interpreter.get_tensor(output_tensor_index)
+        # Get output tensor index
+        output_tensor_index = output_details[0]['index']
+        prediction = interpreter.get_tensor(output_tensor_index)
 
-    # Extract probability correctly
-    damage_probability = prediction.item()
+        # Debugging: Show raw model output
+        st.write("🔍 **Raw Model Output:**", prediction)
 
-    return damage_probability
+        # Extract probability correctly
+        damage_probability = float(prediction.item())  # Ensure correct value extraction
+
+        return damage_probability
+
+    except Exception as e:
+        st.error(f"⚠️ Prediction failed: {e}")
+        return None
+
 
 # Streamlit UI
 st.title("🚗 Car Damage Detector")
@@ -96,33 +88,41 @@ st.title("🚗 Car Damage Detector")
 # Option to upload or take a picture
 option = st.radio("Choose an option:", ["Upload Image", "Take a Photo"])
 
+image = None  # Initialize image variable
+
 if option == "Upload Image":
     uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
-    if uploaded_file:
-        image = Image.open(uploaded_file)
+    if uploaded_file is not None:
+        try:
+            image = Image.open(uploaded_file)
+        except Exception as e:
+            st.error(f"Error loading uploaded image: {e}")
+
 elif option == "Take a Photo":
-    image = st.camera_input("Take a photo")
-    if image:
-        image = Image.open(image)
+    captured_image = st.camera_input("Take a photo")
+    if captured_image is not None:
+        try:
+            image = Image.open(captured_image)
+        except Exception as e:
+            st.error(f"Error capturing image: {e}")
 
-# If an image is uploaded, proceed
-if 'image' in locals():
-    st.image(image, caption="Uploaded Image", use_column_width=True)
+# Ensure an image was uploaded or captured before proceeding
+if image is not None:
+    st.image(image, caption="📷 Uploaded Image", use_container_width=True)
 
-    # Step 1: Check if the image is a car
-    if is_car_image(image):
-        # Step 2: Preprocess image for damage detection
-        processed_img = preprocess_image(image)
+    # Preprocess image
+    processed_img = preprocess_image(image)
 
-        # Step 3: Predict damage
+    if processed_img is not None:
+        # Predict
         damage_probability = predict_damage(processed_img)
 
         # Display results
-        st.subheader("🔍 Prediction:")
-        
-        if damage_probability < 0.5:
-            st.error(f"🚨 *Car is damaged!* (Confidence: {damage_probability:.2%})")
-        else:
-            st.success(f"✅ *Car is not damaged.* (Confidence: {1 - damage_probability:.2%})")
-    else:
-        st.warning("⚠️ Please upload an image that contains a *car*.")
+        if damage_probability is not None:
+            st.subheader("🔍 Prediction:")
+            if damage_probability < 0.5:
+                st.error(f"🚨 **Car is damaged!** (Confidence: {damage_probability:.2%})")
+            else:
+                st.success(f"✅ **Car is not damaged.** (Confidence: {1 - damage_probability:.2%})")
+else:
+    st.warning("⚠️ Please upload or take a picture before proceeding.")
