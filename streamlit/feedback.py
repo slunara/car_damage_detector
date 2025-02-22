@@ -47,7 +47,7 @@ def main():
             if save_feedback(name, email, comment):
                 st.success("✅ Feedback submitted successfully! Thank you for reaching out.")
 
-                                # Clear fields after submission
+                # Clear fields after submission
                 st.session_state.name = ""
                 st.session_state.email = ""
                 st.session_state.comment = ""
