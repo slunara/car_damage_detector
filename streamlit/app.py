@@ -97,11 +97,16 @@ def generate_pdf(image, result_text):
     pdf.multi_cell(0, 10, f"Detection Result:\n{result_text}")
     pdf.ln(10)
 
-    # Convert the image to a temporary file
+    # Convert image to RGB if necessary (JPEG does not support RGBA)
+    if image.mode == "RGBA":
+        image = image.convert("RGB")
+
+    # Convert the image to a temporary buffer
     img_buffer = io.BytesIO()
     image.save(img_buffer, format="JPEG")
     img_buffer.seek(0)
 
+    # Save the image temporarily
     temp_img_path = "temp_uploaded_image.jpg"
     with open(temp_img_path, "wb") as f:
         f.write(img_buffer.read())
