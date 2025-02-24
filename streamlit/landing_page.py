@@ -11,7 +11,7 @@ def main():
         st.header("About the Application")
         st.write(
             "This application utilizes a Deep Learning model to detect if a car is damaged or not based on an image. "
-            "The model is based on EfficientNetV2S and has been trained using real data provided by the Latin American insurance company Sura. "
+            "The model is based on DenseNet-121 and has been trained using public datasets and real data provided by the Latin American insurance company Sura. "
             "Sura, a leading insurance provider, leverages AI technology to enhance its claim assessment processes, reducing manual effort, and expediting claim resolutions. "
             "By automating damage assessment through image recognition, Sura can provide faster payouts, reduce fraudulent claims, and optimize operational costs. "
             "This model supports the insurance industry by improving efficiency in car inspections and claim handling, ultimately benefiting both the company and its customers."
