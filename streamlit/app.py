@@ -5,11 +5,13 @@ import cv2
 from PIL import Image
 from fpdf import FPDF
 import io
+import os
 
 # Load the TFLite model
 @st.cache_resource  # Cache the interpreter for efficiency
 def load_model():
-    interpreter = tflite.Interpreter(model_path="model.tflite")
+    model_path = os.path.join(os.path.dirname(__file__), "model.tflite")
+    interpreter = tflite.Interpreter(model_path=model_path)
     interpreter.allocate_tensors()
     return interpreter
 
