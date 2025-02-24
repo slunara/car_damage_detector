@@ -164,11 +164,11 @@ def main():
             if damage_probability is not None:
                 st.subheader("🔍 Prediction:")
                 if damage_probability < 0.5:
-                    st.error(f"🚨 **Car is damaged!** (Confidence: {1-damage_probability:.2%})")
-                    result_text = f"Car is damaged! (Confidence: {1-damage_probability:.2%})"
+                    st.error(f"🚨 **Car is damaged!**")
+                    result_text = f"Car is damaged!"
                 else:
-                    st.success(f"✅ **Car is not damaged.** (Confidence: {damage_probability:.2%})")
-                    result_text = f"Car is not damaged. (Confidence: {damage_probability:.2%})"
+                    st.success(f"✅ **Car is not damaged.**")
+                    result_text = f"Car is not damaged."
 
                 # Generate and provide a download link for the PDF report
                 pdf_buffer = generate_pdf(image, result_text)
