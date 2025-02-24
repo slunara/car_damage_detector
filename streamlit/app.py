@@ -74,7 +74,7 @@ def predict_damage(image):
         prediction = interpreter.get_tensor(output_tensor_index)
 
         # Debugging: Show raw model output
-        st.write("🔍 **Raw Model Output:**", prediction)
+        # st.write("🔍 **Raw Model Output:**", prediction)
 
         # Extract probability correctly
         damage_probability = float(prediction.item())  # Ensure correct value extraction
