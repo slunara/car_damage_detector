@@ -1,5 +1,6 @@
-echo "streamlit
-opencv-python
+streamlit
+numpy
 tensorflow
-pillow
-numpy" > requirements.txt
+opencv-python
+Pillow
+fpdf
