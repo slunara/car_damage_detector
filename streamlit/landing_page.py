@@ -32,7 +32,7 @@ def main():
         st.write("- Andrea Bordon")
         st.write("- Gabriel Chapman")
         st.write("- Leire Díez")
-        st.write("- Simón García")
+        st.write("- Simón García Mansilla")
         st.write("- Susana Luna")
         st.write("- Philippa Von Quadt")
         st.write("- Yoel Winer")
