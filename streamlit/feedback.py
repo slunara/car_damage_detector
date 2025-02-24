@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 import os
+import cv2
 
 def save_feedback(name, email, comment):
     feedback_data = {"name": name, "email": email, "comment": comment}
